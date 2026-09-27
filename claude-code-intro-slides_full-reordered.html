@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code 入門</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1f1f1f;
+    --sub: #6b6b6b;
+    --line: #e4e0dc;
+    --accent: #e0703f;
+    --accent-dark: #b85a30;
+    --accent-soft: #fbe3d6;
+    --paper: #ffffff;
+    --bg: #2a2826;
+    --code: #f2f0ee;
+    --pale: #f7f6f4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); }
+  body {
+    font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    color: var(--ink);
+    overflow: hidden;
+  }
+  .deck { position: fixed; inset: 0 0 56px 0; display: grid; place-items: center; }
+  body.notes-on .deck { bottom: 216px; }
+  .slide {
+    position: absolute;
+    width: 1280px; height: 720px;
+    background: var(--paper);
+    padding: 64px 96px 60px;
+    display: none;
+    flex-direction: column;
+    transform-origin: center center;
+  }
+  .slide.active { display: flex; }
+  .slide .notes { display: none; }
+  .slide::after {
+    content: attr(data-n);
+    position: absolute; right: 48px; bottom: 30px;
+    font-size: 16px; color: var(--sub);
+  }
+  .kicker { font-size: 18px; font-weight: 700; color: var(--accent); letter-spacing: .08em; margin-bottom: 12px; }
+  .kicker i { font-style: normal; display: inline-block; min-width: 1.6em; }
+  .lv { display: inline-block; margin-left: 12px; font-size: 14px; color: #fff; background: var(--ink); border-radius: 999px; padding: 1px 12px; letter-spacing: .05em; vertical-align: 2px; }
+  h1 { font-size: 64px; line-height: 1.3; font-weight: 700; }
+  h2 { font-size: 44px; line-height: 1.35; font-weight: 700; margin-bottom: 28px; }
+  p, li { font-size: 25px; line-height: 1.7; }
+  .lead { font-size: 29px; line-height: 1.7; }
+  .muted { color: var(--sub); }
+  .small { font-size: 21px; }
+  ul { list-style: none; }
+  ul li { padding-left: 1.1em; position: relative; margin-bottom: 8px; }
+  ul li::before { content: ""; position: absolute; left: 0; top: .72em; width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+  .mark { background: linear-gradient(transparent 58%, var(--accent-soft) 58%); }
+  .body { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .cols3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+  .box { border: 2px solid var(--line); border-radius: 16px; padding: 24px 28px; }
+  .box h3 { font-size: 25px; margin-bottom: 10px; }
+  .box p, .box li { font-size: 22px; }
+  .box.hot { border-color: var(--accent); }
+  .box.hot h3 { color: var(--accent); }
+  .prompt {
+    background: var(--code); border-radius: 12px;
+    padding: 20px 28px; font-size: 24px; line-height: 1.7;
+    border-left: 6px solid var(--accent);
+  }
+  .prompt .hint { color: var(--sub); font-size: 20px; }
+  .result { background: #fff; border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: 12px; padding: 20px 28px; font-size: 24px; line-height: 1.7; }
+  .label { font-size: 17px; color: var(--sub); margin-bottom: 8px; letter-spacing: .05em; }
+  .flow { display: flex; align-items: stretch; gap: 20px; }
+  .flow .step { flex: 1; background: var(--accent-soft); border-radius: 16px; padding: 26px; }
+  .flow .step b { display: block; font-size: 30px; margin-bottom: 10px; }
+  .flow .step span { font-size: 21px; line-height: 1.6; }
+  .flow .arrow { align-self: center; font-size: 32px; color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; font-size: 23px; }
+  th, td { text-align: left; padding: 14px 20px; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.6; }
+  th { font-size: 18px; color: var(--sub); font-weight: 500; }
+  table.compact td { font-size: 21px; padding: 10px 18px; }
+  table.compact th { padding: 8px 18px; }
+  code { background: var(--code); padding: 2px 10px; border-radius: 6px; font-family: "Consolas", "Menlo", monospace; font-size: .92em; }
+  svg.fig { display: block; width: 100%; height: auto; font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic UI", sans-serif; }
+
+  .title-slide { justify-content: center; }
+  .title-slide .bar { width: 80px; height: 8px; background: var(--accent); margin-bottom: 36px; }
+  .title-slide p { margin-top: 28px; font-size: 28px; color: var(--sub); }
+  .agenda { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 56px; }
+  .agenda div { display: flex; gap: 20px; align-items: baseline; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  .agenda b { font-size: 32px; color: var(--accent); min-width: 1.2em; }
+  .agenda span { font-size: 25px; font-weight: 700; }
+  .agenda em { font-style: normal; font-size: 18px; color: var(--sub); display: block; font-weight: 400; margin-top: 2px; }
+  .check li::before { content: "□"; background: none; width: auto; height: auto; top: 0; color: var(--accent); font-weight: 700; }
+  .check li { padding-left: 1.4em; }
+
+  /* チャット画面 */
+  .chat { background: var(--pale); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px; display: flex; flex-direction: column; gap: 14px; }
+  .chat .me, .chat .ai { font-size: 20px; line-height: 1.65; padding: 12px 18px; border-radius: 12px; max-width: 88%; }
+  .chat .me { align-self: flex-end; background: var(--accent-soft); }
+  .chat .ai { align-self: flex-start; background: #fff; border: 1px solid var(--line); }
+  .chat .sys { font-size: 16px; color: var(--sub); padding-left: 4px; }
+
+  /* エクスプローラー風・ファイル中身 */
+  .explorer, .doc { border: 1px solid #d6d2ce; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,.08); background: #fff; }
+  .ex-bar { background: #f1efec; border-bottom: 1px solid #e0dcd8; padding: 10px 14px; display: flex; align-items: center; gap: 7px; font-size: 16px; color: var(--sub); }
+  .ex-bar i { width: 11px; height: 11px; border-radius: 50%; background: #d9d5d1; }
+  .ex-bar span { margin-left: 10px; font-weight: 700; color: var(--ink); }
+  .ex-body { padding: 8px 6px; }
+  .ex-row { display: flex; align-items: center; gap: 12px; font-size: 20px; padding: 5px 14px; border-radius: 8px; }
+  .ex-row svg { width: 24px; height: 24px; flex: none; }
+  .ex-row.sub { padding-left: 50px; color: var(--sub); font-size: 18px; }
+  .ex-row.hl { background: var(--accent-soft); }
+  .ex-row em { font-style: normal; margin-left: auto; font-size: 15px; color: #fff; background: var(--accent); padding: 2px 10px; border-radius: 999px; }
+  .doc-body { padding: 16px 24px; font-size: 19px; line-height: 1.75; }
+  .doc-body .h { font-weight: 700; margin-bottom: 4px; }
+  .doc-body div:not(.h) { padding-left: 1em; text-indent: -1em; }
+
+  /* チップをつなぐ横の流れ */
+  .pipe { display: flex; align-items: center; gap: 14px; }
+  .pipe .pc { flex: 1; border: 2px solid var(--line); border-radius: 14px; padding: 16px 20px; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px; }
+  .pipe .pc small { font-size: 15px; font-weight: 700; color: #fff; background: var(--sub); border-radius: 999px; padding: 2px 12px; flex: none; }
+  .pipe .pc.ai { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .pipe .pc.ai small { background: var(--accent); }
+  .pipe .ar { color: var(--accent); font-size: 28px; }
+  .lanes { display: flex; flex-direction: column; gap: 18px; }
+  .lane { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: center; gap: 8px; }
+  .lane .ar { color: var(--accent); font-size: 28px; text-align: center; }
+  .chip { border: 2px solid var(--line); border-radius: 14px; padding: 14px 18px; font-size: 21px; line-height: 1.5; }
+  .chip b { display: block; font-size: 22px; }
+  .chip small { display: block; font-size: 17px; color: var(--sub); }
+  .chip.hot { background: var(--accent-soft); border-color: var(--accent-soft); }
+
+  /* 育つまでのタイムライン */
+  .timeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; align-items: stretch; }
+  .timeline .ar { align-self: center; color: var(--accent); font-size: 28px; }
+  .tl { border: 2px solid var(--line); border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; }
+  .tl h3 { font-size: 26px; margin-bottom: 8px; }
+  .tl .say { font-size: 19px; background: var(--code); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; line-height: 1.6; }
+  .tl p { font-size: 19px; line-height: 1.6; flex: 1; }
+  .effort { margin-top: 14px; height: 14px; background: var(--pale); border-radius: 7px; overflow: hidden; }
+  .effort span { display: block; height: 100%; background: var(--accent); border-radius: 7px; }
+
+  /* 記録の再利用 */
+  .fan { display: grid; grid-template-columns: 330px 60px 1fr; align-items: center; gap: 10px; }
+  .fan .src { background: var(--pale); border-radius: 16px; padding: 22px 24px; }
+  .fan .src .t { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; margin-bottom: 10px; }
+  .fan .src .t svg { width: 40px; height: 40px; }
+  .fan .src li { font-size: 19px; margin-bottom: 4px; }
+  .fan .big { font-size: 40px; color: var(--accent); text-align: center; }
+  .outs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .outs div { border: 2px solid var(--line); border-radius: 14px; padding: 16px 20px; font-size: 21px; font-weight: 700; line-height: 1.5; }
+  .outs div small { display: block; font-weight: 400; font-size: 16px; color: var(--sub); margin-top: 4px; }
+  .outs div.hot { border-color: var(--accent); }
+  .outs div.hot small { color: var(--accent-dark); }
+
+  .notes-panel {
+    position: fixed; left: 0; right: 0; bottom: 56px; height: 160px;
+    background: #1b1a19; color: #eee; padding: 16px 32px; overflow: auto;
+    font-size: 16px; line-height: 1.8; display: none; z-index: 9;
+    border-top: 1px solid #444;
+  }
+  .notes-panel .h { color: var(--accent); font-size: 13px; letter-spacing: .08em; margin-bottom: 4px; }
+  body.notes-on .notes-panel { display: block; }
+  .nav { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10; }
+  .nav button {
+    border: 0; background: rgba(255,255,255,.14); color: #fff;
+    font: inherit; font-size: 14px; padding: 8px 16px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  }
+  .nav button:hover { background: rgba(255,255,255,.26); }
+  .progress { position: fixed; top: 0; left: 0; height: 4px; background: var(--accent); transition: width .2s; z-index: 10; }
+
+  @media print {
+    @page { size: 1280px 720px; margin: 0; }
+    html, body { background: #fff; overflow: visible; height: auto; }
+    .deck { position: static; display: block; }
+    .slide { display: flex !important; position: relative; transform: none !important; page-break-after: always; break-after: page; }
+    .nav, .progress, .notes-panel { display: none !important; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="ic-folder" viewBox="0 0 24 24"><path d="M2 6.5A1.5 1.5 0 0 1 3.5 5H9l2 2h9.5A1.5 1.5 0 0 1 22 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 2 17.5z" fill="#f2b84b"/><path d="M2 9h20v8.5a1.5 1.5 0 0 1-1.5 1.5h-17A1.5 1.5 0 0 1 2 17.5z" fill="#f7cd6b"/></symbol>
+  <symbol id="ic-file" viewBox="0 0 24 24"><path d="M6 2.5h8l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#fff" stroke="#9b958f" stroke-width="1.3"/><path d="M14 2.5v5h5" fill="none" stroke="#9b958f" stroke-width="1.3"/><path d="M8 12h8M8 15h8M8 18h5" stroke="#c5c0bb" stroke-width="1.3"/></symbol>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e0703f"/></marker>
+    <marker id="ahg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#9b958f"/></marker>
+  </defs>
+</svg>
+<div class="progress" id="progress"></div>
+<div class="deck" id="deck">
+
+  <!-- 表紙 -->
+  <section class="slide title-slide">
+    <div class="bar"></div>
+    <h1>Claude Code で<br>日常業務を半自動化する</h1>
+    <p>入門から中級まで　はじめの一歩から、仕事場を育てるまで</p>
+    <aside class="notes">対象はエンジニアに限りません。経費精算や報告、会議の宿題のような日常業務を Claude Code に任せる方法を、始め方から順に話します。</aside>
+  </section>
+
+  <!-- 目次 -->
+  <section class="slide">
+    <div class="kicker">この資料の流れ</div>
+    <h2>序＋6 つのパートで話します</h2>
+    <div class="body">
+      <div class="agenda">
+        <div><b>序</b><span>Claude Code って何？<em>どんな道具で、利用枠をどう考えるか</em></span></div>
+        <div><b>1</b><span>まず使ってみる<em>頼み方の基本</em></span></div>
+        <div><b>2</b><span>材料を集めて相談する<em>作業フォルダーと聞き返し</em></span></div>
+        <div><b>3</b><span>使うほど楽にする<em>手順と申し送りを育てる</em></span></div>
+        <div><b>4</b><span>会議や調査にも広げる<em>プロジェクトの仕事へ</em></span></div>
+        <div><b>5</b><span>文章の質と同時進行<em>AI っぽさ、並行作業</em></span></div>
+        <div><b>6</b><span>安心して任せるために<em>やらせないことの決め方</em></span></div>
+        <div style="border-bottom:0"></div>
+      </div>
+      <p class="muted small" style="margin-top:28px">対象は入門〜中級。<span class="lv" style="margin-left:0">中級</span> の印があるスライドは、Claude Code の機能名や設定まで踏み込みます。初めての人は飛ばしても流れはつながります。</p>
+    </div>
+    <aside class="notes">前半で「使って、相談して、楽にする」まで、後半で「広げて、質を保ち、安心して任せる」までを扱います。最後に最初の 1 週間と、その次にやることをまとめます。わからない言葉は巻末の用語表にあります。</aside>
+  </section>
+
+  <!-- ===== 序 ===== -->
+  <section class="slide">
+    <div class="kicker"><i>序</i>Claude Code って何？</div>
+    <h2>Claude Code は「作業まで進める」AI</h2>
+    <div class="body">
+      <table>
+        <tr><th style="width:22%"></th><th>ふつうの AI チャット</th><th>Claude Code</th></tr>
+        <tr><td><b>読めるもの</b></td><td>会話に渡した文章や添付ファイル</td><td>作業フォルダー内のファイルを、必要に応じて読む</td></tr>
+        <tr><td><b>できること</b></td><td>答えを文章で返す</td><td>許可された範囲で、ファイルを作る・直す、Web で調べる、手順を実行する</td></tr>
+        <tr><td><b>覚えていること</b></td><td>基本はその会話の中だけ</td><td>CLAUDE.md などの申し送りを、会話の最初に読む</td></tr>
+      </table>
+      <p style="margin-top:28px">「答えを教えてもらう」ではなく、<span class="mark">「フォルダーを渡して仕事を頼む」</span>道具です。</p>
+    </div>
+    <aside class="notes">ChatGPT などを使ったことがある人向けに、違いから入ります。一番の違いは、手元のファイルを必要に応じて読み、許可を得ながら書き換えられること。部下にフォルダーごと渡して頼むイメージです。デスクトップアプリや VS Code から使えます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>序</i>Claude Code って何？</div>
+    <h2>任せる仕事を支える 3 つの要素</h2>
+    <div class="body">
+      <svg class="fig" viewBox="0 0 1088 262" role="img" aria-label="作業フォルダーと Claude Code と外部サービスを、ガードレールが囲む図">
+        <rect x="3" y="24" width="1082" height="235" rx="22" fill="none" stroke="#e0703f" stroke-width="2.5" stroke-dasharray="10 8"/>
+        <rect x="28" y="7" width="350" height="36" rx="18" fill="#e0703f"/>
+        <text x="203" y="31" text-anchor="middle" fill="#fff" font-size="19" font-weight="700">ガードレール：させない操作を決める</text>
+        <use href="#ic-folder" x="115" y="58" width="110" height="110"/>
+        <text x="170" y="196" text-anchor="middle" font-size="23" font-weight="700" fill="#1f1f1f">作業フォルダー</text>
+        <text x="170" y="226" text-anchor="middle" font-size="18" fill="#6b6b6b">文脈：仕事の材料と経緯</text>
+        <line x1="262" y1="128" x2="414" y2="128" stroke="#e0703f" stroke-width="2.5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+        <text x="338" y="112" text-anchor="middle" font-size="18" fill="#6b6b6b">読む・書く</text>
+        <rect x="424" y="80" width="240" height="96" rx="18" fill="#fbe3d6"/>
+        <text x="544" y="124" text-anchor="middle" font-size="27" font-weight="700" fill="#1f1f1f">Claude Code</text>
+        <text x="544" y="155" text-anchor="middle" font-size="18" fill="#6b6b6b">指示を受けて作業する</text>
+        <line x1="674" y1="128" x2="826" y2="128" stroke="#e0703f" stroke-width="2.5" marker-start="url(#ah)" marker-end="url(#ah)"/>
+        <text x="750" y="112" text-anchor="middle" font-size="18" fill="#6b6b6b">つなぐ</text>
+        <g font-size="20" text-anchor="middle" fill="#1f1f1f">
+          <rect x="840" y="58" width="190" height="42" rx="21" fill="#fff" stroke="#d6d2ce" stroke-width="1.5"/><text x="935" y="86">メール</text>
+          <rect x="840" y="108" width="190" height="42" rx="21" fill="#fff" stroke="#d6d2ce" stroke-width="1.5"/><text x="935" y="136">予定表</text>
+          <rect x="840" y="158" width="190" height="42" rx="21" fill="#fff" stroke="#d6d2ce" stroke-width="1.5"/><text x="935" y="186">チャット</text>
+        </g>
+        <text x="935" y="232" text-anchor="middle" font-size="18" fill="#6b6b6b">ツール：外部サービス</text>
+      </svg>
+      <table class="compact" style="margin-top:20px">
+        <tr><td style="width:27%; white-space:nowrap"><b>文脈がないと</b></td><td>「稼働報告を作って」と頼んでも、どの案件に何時間かわからない</td></tr>
+        <tr><td><b>ツールがないと</b></td><td>予定表の中身を、毎回自分でコピーして貼ることになる</td></tr>
+        <tr><td><b>ガードレールがないと</b></td><td>下書きのつもりが、メールを送ってしまうかもしれない</td></tr>
+      </table>
+    </div>
+    <aside class="notes">3 つそろって初めて安心して任せられます。文脈はパート 2「材料を集めて相談する」から、ガードレールは最後のパート 6「安心して任せるために」で詳しく扱います。ツールは最初はなくても始められるので、必要になったら足します。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>序</i>Claude Code って何？</div>
+    <h2>モデル選択で、品質・速度・利用枠を調整する</h2>
+    <div class="body">
+      <p>モデルごとに、得意な作業と利用量の目安が異なります。API 利用は入出力トークン（AI が処理する量）で課金され、サブスクリプションはプランごとの利用枠で管理されます。</p>
+      <div class="cols" style="margin-top:24px">
+        <div class="box hot">
+          <h3>Opus（複雑な判断向け）</h3>
+          <p>初めての作業や、慎重な検討が要る作業。</p>
+        </div>
+        <div class="box">
+          <h3>Sonnet（速度とのバランス型）</h3>
+          <p>やり方が固まった繰り返し作業。</p>
+        </div>
+      </div>
+      <p style="margin-top:24px">使えるモデルと利用枠は、プランや組織の設定で変わります。切り替えは画面のモデル選択（または <code>/model</code>）から。</p>
+    </div>
+    <aside class="notes">日常業務を回す場面が増えると、資料を大量に読ませる頻度も上がります。慎重な検討が要る作業と、手順が固まった繰り返し作業でモデルを使い分けると、利用枠を計画的に使えます。API の料金とサブスクリプションの利用枠は別の仕組みです。/model は書籍外の補足です。</aside>
+  </section>
+
+  <!-- ===== 1 まず使ってみる ===== -->
+  <section class="slide">
+    <div class="kicker"><i>1</i>まず使ってみる</div>
+    <h2>人が指示し、AI が試し、人が判断する</h2>
+    <div class="body">
+      <div class="flow">
+        <div class="step"><b>指示する</b><span>やりたいことを<br>そのまま伝える</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>任せる</b><span>Claude Code が<br>自動で試行錯誤する</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>判断する</b><span>必要な場面だけ<br>人が確認して決める</span></div>
+      </div>
+      <p style="margin-top:40px">いきなり全自動を狙わず、<span class="mark">半自動化から入ってサイクルをつくる。</span><br>一度うまくいって終わりではなく、回すたびに賢くしていきます。</p>
+    </div>
+    <aside class="notes">この資料全体の軸です。AI に丸投げするのではなく、判断が要るところだけ人が持つ。最初から完璧な自動化を目指さないことがポイントです。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>1</i>まず使ってみる</div>
+    <h2>実際のやり取りはこんな感じ</h2>
+    <div class="body">
+      <div class="chat">
+        <div class="me">先月の稼働報告を作って。案件ごとの時間は会議メモと予定表から拾って、いつもの書式で。</div>
+        <div class="sys">… 会議メモ 12 件と先月の報告を読み込み中</div>
+        <div class="ai">下書きを「稼働報告/2026-09.md」に作りました。A 社案件 32 時間、社内勉強会 6 時間です。9/18 の打ち合わせは案件名が書かれていなかったので、どの案件か教えてください。</div>
+        <div class="me">それは B 社。あと合計を一番上に出して。</div>
+        <div class="ai">直しました。提出はご自身でお願いします。</div>
+      </div>
+    </div>
+    <aside class="notes">これは説明用の例です。ポイントは 3 つ。雑に頼んでいい、AI がフォルダー内の材料を自分で探す、わからないところは AI のほうから聞いてくる。最後の提出は人がやります。</aside>
+  </section>
+
+  <!-- ===== 2 材料を集めて相談する ===== -->
+  <section class="slide">
+    <div class="kicker"><i>2</i>材料を集めて相談する</div>
+    <h2>作業フォルダーを 1 つ作る</h2>
+    <div class="body">
+      <p>日常業務の小さな仕事の材料を、AI が読める 1 か所に集めます。</p>
+      <div class="cols" style="margin-top:20px; grid-template-columns: 1.1fr 1fr;">
+        <div class="explorer">
+          <div class="ex-bar"><i></i><i></i><i></i><span>work</span></div>
+          <div class="ex-body">
+            <div class="ex-row hl"><svg><use href="#ic-file"/></svg>CLAUDE.md<em>AI への申し送り</em></div>
+            <div class="ex-row"><svg><use href="#ic-folder"/></svg>経費精算</div>
+            <div class="ex-row sub"><svg><use href="#ic-file"/></svg>2026-09_領収書.pdf</div>
+            <div class="ex-row"><svg><use href="#ic-folder"/></svg>稼働報告</div>
+            <div class="ex-row sub"><svg><use href="#ic-file"/></svg>2026-08.md</div>
+            <div class="ex-row"><svg><use href="#ic-folder"/></svg>会議メモ</div>
+            <div class="ex-row sub"><svg><use href="#ic-file"/></svg>2026-09-24_定例.md</div>
+            <div class="ex-row"><svg><use href="#ic-folder"/></svg>講演依頼</div>
+          </div>
+        </div>
+        <div>
+          <div class="box">
+            <h3>入れる仕事の例</h3>
+            <p>経費精算、通勤回数の申請、稼働報告、講演依頼の返信、会議アジェンダの作成</p>
+          </div>
+          <div class="box hot" style="margin-top:16px">
+            <h3>始め方</h3>
+            <p>材料を入れたフォルダーを 1 つ開くだけ。中のファイルは、必要に応じて AI と一緒に増やしていきます。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">どれも単独でプロジェクトにするほどではない仕事です。フォルダー構成は例です。CLAUDE.md は後で出てくる設定ファイルです。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>2</i>材料を集めて相談する</div>
+    <h2>考えは整理せずに渡す</h2>
+    <div class="body">
+      <p>人間相手なら要点をまとめてから伝えますが、AI には整理する前に全部吐き出します。</p>
+      <div class="label" style="margin-top:22px">こう話しかけてよい（音声入力のまま）</div>
+      <div class="prompt">えーと来週の講演の件で、先方から返信来てて、日程は OK なんだけど、資料の締切が早すぎて、あと謝礼の話がまだで、それとなく聞きたい。丁寧めで。</div>
+      <div class="label" style="margin-top:22px">返ってくるもの</div>
+      <div class="result">日程のお礼、資料締切を 1 週間延ばせないかの相談、謝礼の確認を柔らかく入れた返信メールの下書き</div>
+    </div>
+    <aside class="notes">本で「基本動作」とされているやり方です。例は説明用に作ったものです。人間向けの習慣のまま、AI にも整った指示を出そうとすると手が止まります。話し言葉のままでも、AI は論点を拾って整理してくれます。音声入力の誤変換も文脈で直してくれます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>2</i>材料を集めて相談する</div>
+    <h2>任せる前に、問い返す</h2>
+    <div class="body">
+      <p class="lead">よくわからない提案が出てきたら、そのまま進めずに聞き返します。</p>
+      <div class="prompt" style="margin-top:26px">
+        それは本当に安全？<br>
+        他にどんな選択肢があって、それぞれのメリット・デメリットは？
+      </div>
+      <p style="margin-top:24px">この往復を挟むと、進めてよいかを自分で納得して判断できます。</p>
+      <p class="muted small" style="margin-top:12px">仕事以外でも使えます。賃貸の更新で月 2 万円の値上げを提示されたとき、従う前に相談すると交渉の余地が見えてきます。</p>
+    </div>
+    <aside class="notes">技術的に複雑な提案ほど、わからないまま承認しがちです。判断するのは自分なので、納得できるまで質問して構いません。賃貸の例では、AI が Web から関連する知識を集めて整理してくれました。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>2</i>材料を集めて相談する</div>
+    <h2>長くなったら、会話を切り替える</h2>
+    <div class="body">
+      <p>積み上げた文脈を捨てるのはもったいなく感じますが、損ではありません。</p>
+      <div class="flow" style="margin-top:24px">
+        <div class="step"><b>引き継ぎを書かせる</b><span>ここまでの要点を<br>ファイルに残す</span></div>
+        <div class="arrow">→</div>
+        <div class="step"><b>新しい会話を始める</b><span>引き継ぎファイルを<br>読み込ませる</span></div>
+      </div>
+      <p class="muted" style="margin-top:22px">いっぱいになったホワイトボードを写真に撮って、消してから続きを書くのと同じです。</p>
+      <p class="small" style="margin-top:14px"><span class="lv" style="margin:0 10px 0 0">中級</span>作業の区切りでは、引き継ぎファイル ＋ <code>/clear</code>（新しい会話を始める）で文脈を整理すると、続きの仕事でも迷いにくくなります。</p>
+    </div>
+    <aside class="notes">会話の要約を引き継いで続ける方法と、引き継ぎファイルを残して新しい会話を始める方法があります。作業の区切りで後者を選ぶと、何を読ませるかを自分で明確にできます。コマンド名は書籍外の補足です。</aside>
+  </section>
+
+  <!-- ===== 3 使うほど楽にする ===== -->
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>1 つの仕事が育つまで（稼働報告の例）</h2>
+    <div class="body">
+      <div class="timeline">
+        <div class="tl">
+          <h3>1 回目</h3>
+          <div class="say">「先月の稼働報告を作って」</div>
+          <p>下書きを見てダメ出し。<br>最後に「学びを手順書に反映して」</p>
+          <div class="effort"><span style="width:100%"></span></div>
+        </div>
+        <div class="ar">→</div>
+        <div class="tl">
+          <h3>2 回目</h3>
+          <div class="say">「今月の稼働報告」</div>
+          <p>前回の直しが反映された下書きが出る。確認するだけ</p>
+          <div class="effort"><span style="width:45%"></span></div>
+        </div>
+        <div class="ar">→</div>
+        <div class="tl">
+          <h3>毎月</h3>
+          <div class="say">スキルとして呼び出す</div>
+          <p>やり方が固まったので、軽いモデルに切り替えても回る</p>
+          <div class="effort"><span style="width:20%"></span></div>
+        </div>
+      </div>
+      <p class="muted small" style="margin-top:22px">オレンジの帯は、かかる手間のイメージです。</p>
+    </div>
+    <aside class="notes">この資料で話していることを 1 つの仕事で通すとこうなります。例は説明用です。1 回目は時間がかかっても、2 回目から一気に楽になります。これが「半自動化から入ってサイクルをつくる」の具体的な姿です。軽いモデルの話は序で扱いました。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>CLAUDE.md は、新しい秘書への申し送りメモ</h2>
+    <div class="body">
+      <div class="cols" style="grid-template-columns: 1.25fr 1fr; align-items:center;">
+        <div class="doc">
+          <div class="ex-bar"><svg style="width:20px;height:20px"><use href="#ic-file"/></svg><span style="margin-left:4px">CLAUDE.md</span></div>
+          <div class="doc-body">
+            <div class="h">## 基本方針</div>
+            <div>- 日本語で、明るいトーンで応対する（絵文字は少し）</div>
+            <div>- ユーザーは〇〇部で△△を担当している</div>
+            <div>- 技術用語には短い補足を添える</div>
+            <div>- 音声入力の誤変換は文脈で補正する（部署の略称が別の単語になりがち、など）</div>
+            <div>- 日時・曜日は日本時間で扱う</div>
+            <div>- 最新情報が関係する判断は、一次情報を確認してから</div>
+          </div>
+        </div>
+        <div>
+          <p>堅い仕様書ではなく、日々のお願いごとがただの箇条書きで並んでいるだけ。</p>
+          <p class="mark" style="margin-top:16px; display:inline">書くのは AI。自分で書く必要も、文法を学ぶ必要もありません。</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">本の著者の CLAUDE.md の抜粋をもとに、個人情報を伏せて再構成しました。自己紹介や作業手順は Claude Code 自身に下書きを作らせられます。CLAUDE.md は行動を促すための申し送りであり、操作を確実に止める設定ではありません。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>申し送りや環境設定も、まず頼んでいい</h2>
+    <div class="body">
+      <div class="label">ときどき頼むこと</div>
+      <div class="prompt">設定を見直して整理して。</div>
+      <div class="label" style="margin-top:24px">道具そのものの設定も頼める</div>
+      <div class="prompt">マークダウンファイルを最初からプレビューで開くように、VS Code の設定を変えて。</div>
+      <p style="margin-top:22px">Claude Code に設定変更の下書きや手順を頼めます。書き換える前には内容を確認し、許可して反映します。</p>
+      <p class="muted small" style="margin-top:8px">日々の会話で方針や好みを伝え、良い形になったものを申し送りに残していきます。</p>
+    </div>
+    <aside class="notes">VS Code で Claude Code を使うと、マークダウンは初期設定では記号がむき出しの編集画面で開きます。こうした道具側の設定変更も、画面を探し回らずに頼めます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>うまくいったら、残す</h2>
+    <div class="body">
+      <p>つまずいて解決したときや、ダメ出しで成果物が良くなったときに、ひと言添えます。</p>
+      <div class="prompt" style="margin-top:14px">今回の学びを、次から他の作業でも使えるように、どこに残すのがよいか提案して。内容を確認してから反映して。</div>
+      <ul style="margin-top:22px">
+        <li>残す場所と内容を Claude Code に提案させ、確認して保存する</li>
+        <li>書き残すほど次の仕事が速くなり、効果は複利のように積み上がる</li>
+      </ul>
+      <p class="muted" style="margin-top:6px">優秀なメンバーが、業務マニュアルを自分で更新してくれる状態です。</p>
+    </div>
+    <aside class="notes">これがパート 1 で話した「回すたびに賢くする」の中身です。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする<span class="lv">中級</span></div>
+    <h2>何をどこに書くか</h2>
+    <div class="body">
+      <table class="compact">
+        <tr><th style="width:26%">置き場所</th><th style="width:34%">書くこと</th><th>例</th></tr>
+        <tr><td><b>CLAUDE.md</b></td><td>全体の方針、仕事の背景</td><td>日本語で応対、日時は日本時間</td></tr>
+        <tr><td><b>ルールファイル</b></td><td>作業ごとに守ることと失敗事例</td><td>発信は実行前に本人へ確認</td></tr>
+        <tr><td><b>手順ファイル</b></td><td>業務ごとのやり方</td><td>稼働報告の作り方、提出先</td></tr>
+        <tr><td><b>スキル</b></td><td>名前で呼び出す手順</td><td><code>.claude/skills/monthly-report/</code><br>→ <code>/monthly-report</code></td></tr>
+      </table>
+      <p class="muted small" style="margin-top:18px">CLAUDE.md が長くなると毎回読む量が増えます。業務ごとの内容はルールや手順ファイルに分け、置き場所は AI に提案させて確認します。</p>
+    </div>
+    <aside class="notes">書籍外の補足です。スキル名は半角の英小文字とハイフンで付けます。置き場所の設計も「今の設定を見直して、分けたほうがよいものを分けて」と頼めば AI がやってくれます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>月に 1 回、利用傾向を振り返る</h2>
+    <div class="body">
+      <p class="lead"><code>/insights</code> で、この PC での最近のセッションを分析した HTML レポートを出せます。</p>
+      <div class="cols" style="margin-top:24px">
+        <div>
+          <ul>
+            <li>どのプロジェクト・業務に使っているか</li>
+            <li>よく使う機能や作業の傾向</li>
+            <li>つまずきやすい場面</li>
+            <li>試せそうな改善のヒント</li>
+          </ul>
+        </div>
+        <div class="box hot">
+          <h3>出てきた改善案の例</h3>
+          <p>改善のヒントを見たら、「次からの手順に反映する案を出して」と頼み、内容を確認する</p>
+        </div>
+      </div>
+      <p class="muted small" style="margin-top:18px">月に 1 回など、振り返るタイミングを決めておくと改善を続けやすくなります。</p>
+    </div>
+    <aside class="notes">/insights は、ローカルの最近のセッションをまとめる機能です。内容は環境や利用状況によって変わります。出てきた提案はそのまま採用せず、何を変えるかを確認してから反映します。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする</div>
+    <h2>1 か所にまとめると、仕事同士がつながる</h2>
+    <div class="body">
+      <div class="lanes">
+        <div class="lane"><div class="chip"><b>会議メモ</b></div><div class="ar">→</div><div class="chip"><b>稼働報告</b><small>案件ごとの時間を拾う</small></div><div class="ar">→</div><div class="chip"><b>評価の自己申告</b><small>半年分の実績をまとめる</small></div></div>
+        <div class="lane"><div class="chip"><b>講演依頼のやり取り</b></div><div class="ar">→</div><div class="chip"><b>登壇の記録</b><small>日付・テーマ・資料</small></div><div class="ar">→</div><div class="chip"><b>プロフィールページ</b><small>登壇歴を一覧に</small></div></div>
+      </div>
+      <div class="box hot" style="margin-top:22px">
+        <h3>人が決めるのは、まとめる境界</h3>
+        <p>関係の深い仕事はまとめる。機密性・共有範囲・保存ルールが違うものは分ける。</p>
+      </div>
+      <p class="muted small" style="margin-top:12px">複数の仕事を 1 か所で管理する方法を「モノレポ」と呼びます。作業フォルダーは、すでに小さなモノレポです。</p>
+    </div>
+    <aside class="notes">関係の深い仕事を 1 か所にまとめると、仕事同士をつなげやすくなります。ただし、機密性・共有範囲・保存ルールが違う情報まで同じ場所に集めるものではありません。開発の世界では、ファイル一式をまとめて管理する場所を「リポジトリ」と呼び、複数の仕事を 1 つのリポジトリに同居させるのがモノレポです。機密情報の扱いはパート 6 で触れます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする<span class="lv">中級</span></div>
+    <h2>よく使うコマンド</h2>
+    <div class="body">
+      <table class="compact">
+        <tr><td style="width:26%"><code>/insights</code></td><td>利用履歴を分析したレポートを出す</td></tr>
+        <tr><td><code>/model</code></td><td>使うモデルを切り替える</td></tr>
+        <tr><td><code>/clear</code></td><td>会話をリセットして、まっさらな状態から始める</td></tr>
+        <tr><td><code>/compact</code></td><td>ここまでの会話を要約して続ける</td></tr>
+        <tr><td><code>/resume</code></td><td>過去の会話を選んで再開する</td></tr>
+        <tr><td><code>/スキル名</code></td><td>保存したスキルを呼び出す（例：<code>/monthly-report</code>）</td></tr>
+      </table>
+      <p class="muted small" style="margin-top:18px">チャット欄に <code>/</code> と打つと、使えるコマンドの一覧が出ます。</p>
+    </div>
+    <aside class="notes">書籍外の補足です（/insights は書籍に登場します）。ここにあるものだけ覚えておけば、日常業務では十分です。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>3</i>使うほど楽にする<span class="lv">中級</span></div>
+    <h2>次の一歩：合格条件を先に言葉にする</h2>
+    <div class="body">
+      <p>開発では、合格条件をテストで確かめながら、AI に作業と検証を繰り返させる進め方が広がっています。</p>
+      <div class="cols" style="margin-top:26px">
+        <div class="box">
+          <h3>日常業務にそのまま持ち込むのは早い</h3>
+          <p>送信や申請のように取り消せない操作があり、成果の良し悪しも機械で判定しきれない。</p>
+        </div>
+        <div class="box hot">
+          <h3>考え方は使える</h3>
+          <p>「何ができたら完成か」を先に書き出し、人の目でしていた確認を少しずつ仕組みに置き換える。</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">開発ではテストという機械的な合否判定があるので、失敗してもやり直せます。日常業務では人の判断が残る場面も多いものの、半自動化を進めるときのヒントになります。</aside>
+  </section>
+
+  <!-- ===== 4 会議や調査にも広げる ===== -->
+  <section class="slide">
+    <div class="kicker"><i>4</i>会議や調査にも広げる</div>
+    <h2>会議の宿題を、その日のうちに判断材料へ</h2>
+    <div class="body">
+      <p>「調べておきます」は次の定例まで放置しがちで、直前には経緯を忘れています。</p>
+      <div class="pipe" style="margin-top:22px">
+        <div class="pc"><small>人</small>会議メモを整理</div>
+        <div class="ar">→</div>
+        <div class="pc ai"><small>AI</small>その流れで宿題を調査</div>
+        <div class="ar">→</div>
+        <div class="pc ai"><small>AI</small>用途に合わせてまとめる</div>
+      </div>
+      <div class="label" style="margin-top:20px">指示の例</div>
+      <div class="prompt">今日の定例で私の宿題になった他社事例の調査、進めておいて。</div>
+      <p style="margin-top:14px">Web 検索と手元の資料から、出典付きのメモにまとめてくれます。</p>
+    </div>
+    <aside class="notes">打ち合わせのあと、コーヒーを飲んで一息ついている間に下調べが終わっています。作業フォルダーに会議メモがあれば、どの会議の何の宿題かは AI が文脈から判断します。まとめ方は、判断用の比較、共有用の要約など、使い道に合わせて指定します。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>4</i>会議や調査にも広げる</div>
+    <h2>成功はスキルに、つまずきはルールに</h2>
+    <div class="body">
+      <div class="lanes">
+        <div class="lane"><div class="chip"><b>うまくいった流れ</b></div><div class="ar">→</div><div class="chip hot"><b>スキル・手順ファイル</b><small>名前を付けて保存した手順</small></div><div class="ar">→</div><div class="chip"><b>次は呼び出すだけ</b></div></div>
+        <div class="lane"><div class="chip"><b>つまずき・ダメ出し</b></div><div class="ar">→</div><div class="chip hot"><b>ルール（失敗事例つき）</b><small>守ることと、その理由</small></div><div class="ar">→</div><div class="chip"><b>同じミスをしない</b></div></div>
+      </div>
+      <div class="cols" style="margin-top:28px">
+        <div class="box">
+          <h3>スキルにする合図</h3>
+          <p>「また同じことを頼んでいる」と感じたとき。難しい判断は要りません。</p>
+        </div>
+        <div class="box">
+          <h3>ルールの例</h3>
+          <p>人のいる場所への発信は、実行前に必ず本人へ確認する。末尾に失敗事例を記録。</p>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">一度きりの成功で終わらせない仕掛けです。こうして残していくと、プロジェクト業務も日を追うごとに速くなります。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>4</i>会議や調査にも広げる</div>
+    <h2>たまった記録は、別の成果になる</h2>
+    <div class="body">
+      <div class="fan">
+        <div class="src">
+          <div class="t"><svg><use href="#ic-folder"/></svg>work</div>
+          <ul>
+            <li>案件の記録</li>
+            <li>登壇・執筆の記録</li>
+            <li>会議メモ</li>
+          </ul>
+        </div>
+        <div class="big">→</div>
+        <div class="outs">
+          <div>講演資料<small>過去の登壇内容から</small></div>
+          <div>勉強会・技術記事<small>案件の知見から</small></div>
+          <div>プロフィールページ<small>数年分の登壇・執筆記録から</small></div>
+          <div class="hot">評価の自己申告の下書き<small>自分だけの場所に置く</small></div>
+        </div>
+      </div>
+      <p style="margin-top:30px">1 か所に集めておいたから、頼むだけで形になります。</p>
+    </div>
+    <aside class="notes">パート 2 で 1 か所に集めたことが、ここで効いてきます。本の著者は、5 年分の登壇や執筆の記録からプロフィールページを作り、半年分の案件記録から評価の自己申告の下書きを作っています。</aside>
+  </section>
+
+  <!-- ===== 5 文章の質と同時進行 ===== -->
+  <section class="slide">
+    <div class="kicker"><i>5</i>文章の質と同時進行</div>
+    <h2>文章を任せるときは「AI っぽさ」を消す</h2>
+    <div class="body">
+      <p>せっかくの成果物が「AI っぽい」の一言で軽く見られるのは、もったいない。</p>
+      <div class="cols" style="margin-top:22px">
+        <div class="box">
+          <h3>よくある癖</h3>
+          <ul>
+            <li>太字と箇条書きだらけ</li>
+            <li>整っているが、誰が書いても同じ</li>
+            <li>体温のない文体</li>
+          </ul>
+        </div>
+        <div class="box hot">
+          <h3>対処</h3>
+          <p>避けたい癖をルールに書く。言葉にしきれない好みは、過去に自分で書いた資料や記事をサンプルとして渡す。</p>
+        </div>
+      </div>
+      <p class="muted small" style="margin-top:22px">AI の文章が増えるほど、自分らしい語り口、現場の実感、正直な迷いの跡には価値が出ます。</p>
+    </div>
+    <aside class="notes">実物を渡すのがいちばん効きます。人間らしさは AI の一般論では代わりがききません。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>5</i>文章の質と同時進行</div>
+    <h2>複数の仕事を同時に進める</h2>
+    <div class="body">
+      <p>慣れてきたら、会話を複数開いて並行で任せられます。いちばん警戒すべきは、<span class="mark">別の会話に指示を送ってしまうこと</span>です。</p>
+      <svg class="fig" style="margin-top:18px" viewBox="0 0 1088 236" role="img" aria-label="講演の返信向けの指示を、経費精算の会話に送ってしまう図">
+        <rect x="414" y="2" width="260" height="42" rx="21" fill="#fbe3d6"/>
+        <text x="544" y="30" text-anchor="middle" font-size="20" fill="#1f1f1f">「この内容で返信して」</text>
+        <line x1="440" y1="44" x2="220" y2="92" stroke="#e0703f" stroke-width="3" marker-end="url(#ah)"/>
+        <circle cx="318" cy="66" r="15" fill="#e0703f"/><text x="318" y="72" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">×</text>
+        <text x="200" y="58" text-anchor="middle" font-size="18" fill="#b85a30" font-weight="700">送り先違い</text>
+        <line x1="544" y1="46" x2="544" y2="92" stroke="#9b958f" stroke-width="2.5" stroke-dasharray="6 6" marker-end="url(#ahg)"/>
+        <text x="560" y="76" font-size="17" fill="#6b6b6b">本来の送り先</text>
+        <g>
+          <rect x="40" y="100" width="300" height="130" rx="12" fill="#fff" stroke="#e0703f" stroke-width="2.5"/>
+          <rect x="40" y="100" width="300" height="34" rx="12" fill="#f1efec"/><text x="60" y="124" font-size="18" font-weight="700" fill="#1f1f1f">経費精算</text>
+          <rect x="394" y="100" width="300" height="130" rx="12" fill="#fff" stroke="#d6d2ce" stroke-width="1.5"/>
+          <rect x="394" y="100" width="300" height="34" rx="12" fill="#f1efec"/><text x="414" y="124" font-size="18" font-weight="700" fill="#1f1f1f">講演の返信</text>
+          <rect x="748" y="100" width="300" height="130" rx="12" fill="#fff" stroke="#d6d2ce" stroke-width="1.5"/>
+          <rect x="748" y="100" width="300" height="34" rx="12" fill="#f1efec"/><text x="768" y="124" font-size="18" font-weight="700" fill="#1f1f1f">会議の宿題</text>
+          <g stroke="#e4e0dc" stroke-width="8" stroke-linecap="round">
+            <line x1="64" y1="160" x2="280" y2="160"/><line x1="64" y1="184" x2="240" y2="184"/><line x1="64" y1="208" x2="200" y2="208"/>
+            <line x1="418" y1="160" x2="634" y2="160"/><line x1="418" y1="184" x2="594" y2="184"/><line x1="418" y1="208" x2="554" y2="208"/>
+            <line x1="772" y1="160" x2="988" y2="160"/><line x1="772" y1="184" x2="948" y2="184"/><line x1="772" y1="208" x2="908" y2="208"/>
+          </g>
+        </g>
+      </svg>
+      <p class="small" style="margin-top:14px">送る前に、どの仕事の会話かを確かめる。並行で資料を大量に読ませると利用上限にも届きやすくなるので、序で話したモデル切り替えと組み合わせます。</p>
+    </div>
+    <aside class="notes">並行作業そのものより、指示の送り先を間違えるほうが事故になりやすい、という点を強調します。「送る前に確かめる」は一般的な対策として書いています。</aside>
+  </section>
+
+  <!-- ===== 6 安心して任せるために ===== -->
+  <section class="slide">
+    <div class="kicker"><i>6</i>安心して任せるために</div>
+    <h2>ガードレールで、任せる範囲を広げる</h2>
+    <div class="body">
+      <div class="cols" style="align-items:center;">
+        <svg class="fig" viewBox="0 0 500 330" role="img" aria-label="ガードレールに挟まれた道路を AI の車が走る図">
+          <rect x="0" y="95" width="500" height="140" fill="#eceae7"/>
+          <line x1="0" y1="165" x2="500" y2="165" stroke="#fff" stroke-width="5" stroke-dasharray="26 18"/>
+          <g fill="#b85a30">
+            <rect x="30" y="72" width="7" height="24"/><rect x="110" y="72" width="7" height="24"/><rect x="190" y="72" width="7" height="24"/><rect x="270" y="72" width="7" height="24"/><rect x="350" y="72" width="7" height="24"/><rect x="430" y="72" width="7" height="24"/>
+            <rect x="30" y="234" width="7" height="24"/><rect x="110" y="234" width="7" height="24"/><rect x="190" y="234" width="7" height="24"/><rect x="270" y="234" width="7" height="24"/><rect x="350" y="234" width="7" height="24"/><rect x="430" y="234" width="7" height="24"/>
+          </g>
+          <rect x="0" y="78" width="500" height="11" rx="3" fill="#e0703f"/>
+          <rect x="0" y="241" width="500" height="11" rx="3" fill="#e0703f"/>
+          <g stroke="#c9c4bf" stroke-width="3" stroke-linecap="round"><line x1="92" y1="118" x2="124" y2="118"/><line x1="80" y1="131" x2="124" y2="131"/><line x1="92" y1="144" x2="124" y2="144"/></g>
+          <rect x="138" y="104" width="130" height="54" rx="16" fill="#fbe3d6" stroke="#e0703f" stroke-width="2.5"/>
+          <text x="203" y="140" text-anchor="middle" font-size="26" font-weight="700" fill="#1f1f1f">AI</text>
+          <line x1="284" y1="131" x2="370" y2="131" stroke="#e0703f" stroke-width="3" marker-end="url(#ah)"/>
+          <rect x="310" y="30" width="160" height="34" rx="17" fill="#1f1f1f"/><text x="390" y="53" text-anchor="middle" font-size="18" fill="#fff">送信しない</text>
+          <rect x="310" y="266" width="160" height="34" rx="17" fill="#1f1f1f"/><text x="390" y="289" text-anchor="middle" font-size="18" fill="#fff">削除しない</text>
+          <text x="0" y="322" font-size="17" fill="#6b6b6b">この内側なら、安心して走らせられる</text>
+        </svg>
+        <div>
+          <p>道路のガードレールのように、AI の行動に安全な範囲を先に決めておきます。</p>
+          <div class="box" style="margin-top:16px">
+            <h3>最初から入っているもの</h3>
+            <p>初期状態では、ツールを初めて使うときに承認を求める仕組み</p>
+          </div>
+          <div class="box hot" style="margin-top:14px">
+            <h3>自分で足すもの</h3>
+            <p>守らせたいことを具体化し、権限設定やフックに反映する</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <aside class="notes">道路のガードレールが車線からのはみ出しを防ぐのと同じです。ガードレールは AI を縛るためではなく、安心して任せられる範囲を広げるための安全装置です。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>6</i>安心して任せるために</div>
+    <h2>ガードレールの足し方</h2>
+    <div class="body">
+      <div class="label">一文で足す</div>
+      <div class="prompt">メールの送信ボタンは絶対に押さないで。</div>
+      <div class="label" style="margin-top:22px">設定ごと Claude Code に頼む</div>
+      <div class="prompt">私の業務ではセキュリティが最優先です。<span class="hint">（続けて、防ぎたい事故を具体的に書く）</span></div>
+      <ul style="margin-top:24px">
+        <li>権限設定やフックを使うと、送信など特定の操作を設定で止められる</li>
+        <li>自動モード（安全確認を背景で行いながら進める）は、ガードレールを整えてから使う</li>
+      </ul>
+      <p class="muted small" style="margin-top:6px">「入れたから安心」で終わらせない。防ぎたい事故を具体的にするのが先です。会社全体のルールは、個人の設定とは別に決めます。</p>
+    </div>
+    <aside class="notes">自動モードは便利ですが、通常の手動承認とは動き方が変わります。使う前に、何を止めたいかを具体化し、権限設定やフックが意図どおり効くことを確かめます。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>6</i>安心して任せるために<span class="lv">中級</span></div>
+    <h2>ガードレールを支える 3 つの仕組み</h2>
+    <div class="body">
+      <div class="cols3">
+        <div class="box">
+          <h3>権限設定</h3>
+          <p>操作ごとに「許可」「確認」「拒否」を決めておく。送信につながる操作を拒否、など。</p>
+        </div>
+        <div class="box">
+          <h3>フック</h3>
+          <p>特定の操作の前後に処理を差し込む。PreToolUse フックなら、条件に応じて操作を止められる。</p>
+        </div>
+        <div class="box hot">
+          <h3>権限モード</h3>
+          <p>操作時の確認のしかたを選ぶ。自動モードは左の 2 つを整えてから。</p>
+        </div>
+      </div>
+      <div class="label" style="margin-top:30px">書き方を覚える必要はない</div>
+      <div class="prompt">メールやチャットへの送信操作は、必ず拒否される設定を入れて。入れたあと、本当に止まるか確かめて。</div>
+    </div>
+    <aside class="notes">書籍外の補足です。本で「入出力をブロックする専用機能」とされているものの代表がフックです。設定ファイルの文法は覚えなくてよく、頼んで書かせ、効いているかを確認させるのが中級者向けの使い方です。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>6</i>安心して任せるために</div>
+    <h2>線引きは「あとからやり直せるか」</h2>
+    <div class="body">
+      <div class="cols">
+        <div class="box">
+          <h3>やり直せる → 任せてよい</h3>
+          <p>下書きの作成、ファイルの編集、調査メモ</p>
+        </div>
+        <div class="box hot">
+          <h3>やり直せない → 人が確認してから</h3>
+          <p>メール送信、申請、人のいる場所への投稿</p>
+        </div>
+      </div>
+      <div class="label" style="margin-top:34px">社内システムに AI をつなげない職場でも、この形なら使える</div>
+      <div class="pipe">
+        <div class="pc ai"><small>AI</small>入力内容を作る</div>
+        <div class="ar">→</div>
+        <div class="pc"><small>人</small>中身を確認する</div>
+        <div class="ar">→</div>
+        <div class="pc"><small>人</small>コピペして申請</div>
+      </div>
+    </div>
+    <aside class="notes">ガードレールの線引きで迷ったときの目安です。「うちの職場では経費システムを AI に操作させるなんて許可されない」という場合も、諦める必要はありません。入力内容を用意させるだけで手間の大半はなくなり、最後の入力と申請だけ人が行います。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker"><i>6</i>安心して任せるために</div>
+    <h2>扱いを決めてから渡す情報</h2>
+    <div class="body">
+      <div class="cols">
+        <div class="box hot">
+          <h3>認証情報</h3>
+          <p>パスワードや API キーは、チャット・CLAUDE.md・資料に文字のまま残さない。保管方法は組織のルールに従う。</p>
+        </div>
+        <div class="box hot">
+          <h3>機微な情報</h3>
+          <p>人事・顧客・契約情報は、利用可否を会社の規程に照らして確認する。個人用フォルダーに置くだけでは解決しない。</p>
+        </div>
+      </div>
+      <p class="muted small" style="margin-top:24px">API キー：プログラムがサービスに接続するための鍵になる文字列</p>
+    </div>
+    <aside class="notes">パート 3 で「関係の深い仕事はまとめる」と話しましたが、情報の扱いは別です。組織の規程、利用するサービスの契約、アクセス権を確認してから渡します。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">まとめ<span class="lv">中級</span></div>
+    <h2>この資料の言葉と、Claude Code の機能</h2>
+    <div class="body">
+      <table class="compact">
+        <tr><th style="width:20%">この資料では</th><th style="width:32%">Claude Code の機能</th><th>役割</th></tr>
+        <tr><td><b>文脈</b></td><td>作業フォルダー、CLAUDE.md</td><td>CLAUDE.md は会話の最初に読み込まれる申し送り</td></tr>
+        <tr><td><b>ツール</b></td><td>MCP（外部サービス連携）</td><td>必要に応じてメール、予定表、チャットなどにつなぐ</td></tr>
+        <tr><td><b>ガードレール</b></td><td>権限設定、フック</td><td>特定の操作を拒否する。PreToolUse フックなら実行前に止められる</td></tr>
+        <tr><td><b>手順・スキル</b></td><td>スキル</td><td>名前を付けて保存した手順。<code>/名前</code> で呼び出す</td></tr>
+        <tr><td><b>利用の振り返り</b></td><td><code>/insights</code></td><td>この PC の最近のセッションを分析したレポート</td></tr>
+        <tr><td><b>モデル選択</b></td><td>モデル切り替え、<code>/model</code></td><td>使えるモデルから、作業に合うものを選ぶ</td></tr>
+      </table>
+      <p class="muted small" style="margin-top:18px">設定や手順の下書きは頼めます。変更内容は確認してから反映します。</p>
+    </div>
+    <aside class="notes">ここまでに出てきた言葉が、実際の Claude Code の機能のどれに当たるかを振り返ります。機能名を知っておくと、調べものや AI への依頼がしやすくなります。</aside>
+  </section>
+
+  <!-- まとめ -->
+  <section class="slide">
+    <div class="kicker">まとめ</div>
+    <h2>この先の広げ方</h2>
+    <div class="body">
+      <div class="cols">
+        <div class="box">
+          <h3>日常業務からプロジェクト業務へ</h3>
+          <p>会議の宿題を片づけ、成功とつまずきをスキルやルールに変えていくと、プロジェクト業務も日を追うごとに速くなる。</p>
+        </div>
+        <div class="box">
+          <h3>共有する前に、仕組みを整える</h3>
+          <p>うまくいった手順を共有する前に、権限、情報の扱い、確認する人を決める。</p>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:28px">どちらも、ここまでの「集める・任せる・守る・育てる」が土台です。</p>
+    </div>
+    <aside class="notes">本の後半で扱われている発展編の入口です。まずは日常業務で 1 周回すことを優先します。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">まとめ</div>
+    <h2>最初の 1 週間でやること</h2>
+    <div class="body">
+      <ul class="check">
+        <li>作業フォルダーを 1 つ作り、身近な雑務を 1 つ入れる</li>
+        <li>整理せずに話しかけて、1 件やり切ってもらう</li>
+        <li>「送信・申請はしないで」とガードレールを 1 行足す</li>
+        <li>会議のあと、宿題を 1 つ投げてみる</li>
+        <li>うまくいった流れを手順書に残してもらう</li>
+      </ul>
+      <p style="margin-top:24px"><span class="mark">集める、任せる、守る、育てる。</span>この順で、使うほど仕事場が賢くなります。</p>
+    </div>
+    <aside class="notes">全部を一度にやる必要はありません。1 件やり切って、それを手順書に残す。この 1 周を体験するのが最初のゴールです。</aside>
+  </section>
+
+  <section class="slide">
+    <div class="kicker">まとめ<span class="lv">中級</span></div>
+    <h2>慣れてきたらやること</h2>
+    <div class="body">
+      <ul class="check">
+        <li>送信につながる操作を拒否する設定を入れ、意図どおり止まるか確かめる</li>
+        <li>毎月の定型業務を 1 つスキルにする</li>
+        <li>月に 1 回 <code>/insights</code> を見て、改善のヒントを確認する</li>
+        <li>手順が固まった作業で、利用できるモデルを使い分ける</li>
+        <li>長い会話は引き継ぎファイルを残してから切り替える</li>
+      </ul>
+    </div>
+    <aside class="notes">入門のチェックリストを一通り終えてから取り組む、中級者向けの次の一歩です。設定を変えたときは、実際に止まるか確認します。</aside>
+  </section>
+
+  <!-- ===== 付録 ===== -->
+  <section class="slide">
+    <div class="kicker">付録</div>
+    <h2>用語の早見表</h2>
+    <div class="body">
+      <table class="compact">
+        <tr><td style="width:24%"><b>作業フォルダー</b></td><td>Claude Code を始める仕事場。許可された範囲で中のファイルを読み書きする</td></tr>
+        <tr><td><b>モノレポ</b></td><td>複数の仕事を 1 つのフォルダー（リポジトリ）にまとめて管理する方法</td></tr>
+        <tr><td><b>会話（セッション）</b></td><td>1 回分のやり取り。長くなったら、要約や引き継ぎで文脈を整理する</td></tr>
+        <tr><td><b>CLAUDE.md</b></td><td>AI への申し送りメモ。会話の最初に読み込まれるが、強制設定ではない</td></tr>
+        <tr><td><b>手順ファイル・スキル</b></td><td>うまくいったやり方を保存したもの。スキルは名前で呼び出せる</td></tr>
+        <tr><td><b>ガードレール</b></td><td>AI にさせない操作の決まり。送信禁止など</td></tr>
+        <tr><td><b>自動モード</b></td><td>安全確認を背景で行いながら、操作を進める権限モード</td></tr>
+        <tr><td><b>モデル・トークン</b></td><td>AI の種類と、処理量の単位。料金・利用枠の扱いは契約形態で異なる</td></tr>
+      </table>
+    </div>
+    <aside class="notes">質疑のときに使う想定のスライドです。</aside>
+  </section>
+
+</div>
+
+<div class="notes-panel" id="notesPanel"><div class="h">話すこと</div><div id="notesText"></div></div>
+<div class="nav">
+  <button id="prev" aria-label="前へ">←</button>
+  <button id="count" disabled>1 / 1</button>
+  <button id="next" aria-label="次へ">→</button>
+  <button id="notesBtn">ノート (N)</button>
+</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  slides.forEach((s, i) => { if (i > 0) s.dataset.n = i + 1; });
+  let cur = 0;
+  try { const h = parseInt(location.hash.slice(1), 10); if (h >= 1 && h <= slides.length) cur = h - 1; } catch (e) {}
+
+  function fit() {
+    const r = document.getElementById('deck').getBoundingClientRect();
+    const k = Math.min(r.width / 1280, r.height / 720) * 0.98;
+    slides.forEach(s => s.style.transform = `scale(${k})`);
+  }
+  function show(i) {
+    cur = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle('active', j === cur));
+    document.getElementById('count').textContent = `${cur + 1} / ${slides.length}`;
+    document.getElementById('progress').style.width = `${(cur + 1) / slides.length * 100}%`;
+    const n = slides[cur].querySelector('.notes');
+    document.getElementById('notesText').textContent = n ? n.textContent : '';
+    try { history.replaceState(null, '', '#' + (cur + 1)); } catch (e) {}
+  }
+  function toggleNotes() { document.body.classList.toggle('notes-on'); fit(); }
+  document.getElementById('prev').onclick = () => show(cur - 1);
+  document.getElementById('next').onclick = () => show(cur + 1);
+  document.getElementById('notesBtn').onclick = toggleNotes;
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(cur + 1); }
+    if (['ArrowLeft', 'PageUp', 'Backspace'].includes(e.key)) { e.preventDefault(); show(cur - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+    if (e.key === 'n' || e.key === 'N') toggleNotes();
+    if (e.key === 'f') document.documentElement.requestFullscreen?.();
+  });
+  let tx = null;
+  document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+  document.addEventListener('touchend', e => {
+    if (tx === null) return;
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 40) show(cur + (dx < 0 ? 1 : -1));
+    tx = null;
+  });
+  window.addEventListener('resize', fit);
+  fit(); show(cur);
+</script>
+</body>
+</html>
